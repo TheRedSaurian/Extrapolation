@@ -31,7 +31,7 @@ steps_sd_pure = [0.25, 1.035, 0.149, 0.306, 0.01]
 steps_mn = steps_mn_pure
 steps_sd = steps_sd_pure
 
-labels = ['Abiogenesis', 'Eukaryogenesis abs', 'Differentiation abs', 'Explosion abs', 'CCE abs', 'Eukaryogenesis', 'Differentiation', 'Explosion', 'CCE']
+labels = ['Abiogenesis', 'Eukaryogenesis abs', 'Differentiation abs', 'Explosion abs', 'Biodiversity abs', 'Eukaryogenesis', 'Differentiation', 'Explosion', 'Biodiversity']
 normals = [0,0,0,0,0]
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -73,6 +73,11 @@ def HardStepExp(x, n):
 def StepArray(step_func):
     xlist.append([step_func(i) for i in t])
 
+
+def LogisticCurve(x,l,k,x0):
+    return l / (1 + np.e**-(k * (x - x0)))
+
+
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def Abiogenesis(x):
@@ -92,10 +97,20 @@ def Explosion(x):
 def CCE(x):
     return HardStepNormal(x, 4) if x > 0.05 else 0
 
+
+def Biodiversity(x):
+    l = 43.405
+    k = 5
+    x0 = 0.965425
+    norm = 1.08320680813
+    result = LogisticCurve(x, l, k, x0) / norm
+    return result if x < 15 else l / norm
+
+
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 timespan = 100  # in Gyr
-timestep = 0.01 # in Gyr
+timestep = timespan/10000 # in Gyr
 # if ratio above 10000, memory errory throws when making grid
 t = [i*timestep for i in range(int(timespan/timestep))]
 
@@ -107,7 +122,8 @@ def DistributeSteps():
     StepArray(Eukaryogenesis)
     StepArray(Differentiation)
     StepArray(Explosion)
-    StepArray(CCE)
+    #StepArray(CCE)
+    StepArray(Biodiversity)
 
 DistributeSteps()
 
@@ -192,7 +208,8 @@ def ChainSteps():
     xlist.append([Real_Diff(i) for i in t])
     #xlist.append([1 for i in t])
     normal = sum(xlist[-1])
-    xlist[-1] = [i/normal for i in xlist[-1]]
+    print(normal)
+    xlist[-1] = [i * 1/normal for i in xlist[-1]]
 
     tend = time()
     print(tend - tstart, "\n")
@@ -217,10 +234,37 @@ def ChainSteps():
     xlist.append([Real_Expl(i) for i in t])
     #xlist.append([1 for i in t])
     normal = sum(xlist[-1])
+    print(normal)
     xlist[-1] = [i/normal for i in xlist[-1]]
 
     tend = time()
     print(tend - tstart, "\n")
+
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    
+    #tstart = time()
+
+    #grid = []
+    #grid = CombineSteptoGrid(7,4)
+    ##print(grid)
+
+    #tend = time()
+    #print(tend - tstart)
+    #tstart = time()
+
+    #def Real_CCE(x):
+    #    last = 7
+    #    next = 4
+    #    return CombineStep(x, last, next, grid)
+
+    #xlist.append([Real_CCE(i) for i in t])
+    ##xlist.append([1 for i in t])
+    #normal = sum(xlist[-1])
+    #xlist[-1] = [i/normal for i in xlist[-1]]
+
+    #
+    #tend = time()
+    #print(tend - tstart)
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     
@@ -234,15 +278,15 @@ def ChainSteps():
     print(tend - tstart)
     tstart = time()
 
-    def Real_CCE(x):
+    def Real_Biodiversity(x):
         last = 7
         next = 4
         return CombineStep(x, last, next, grid)
 
-    xlist.append([Real_CCE(i) for i in t])
+    xlist.append([Real_Biodiversity(i) for i in t])
     #xlist.append([1 for i in t])
-    normal = sum(xlist[-1])
-    xlist[-1] = [i/normal for i in xlist[-1]]
+    #normal = sum(xlist[-1])
+    #xlist[-1] = [i/normal for i in xlist[-1]]
 
     
     tend = time()
@@ -257,3 +301,10 @@ for i in range(len(xlist)):
     ax.plot(t, xlist[i], label=labels[i])
 ax.legend()
 plt.show()
+
+# writing the text file
+TL = open('sophonce' + str(timespan) + '.txt', "w")
+TL.write('\n')
+for i in range(1000):
+    TL.write(str(xlist[-1][i]))
+    TL.write(',')
