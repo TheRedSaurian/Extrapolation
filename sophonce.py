@@ -22,11 +22,14 @@ rand.seed(seed)
 # complexity explosion
 # CCE exaptions
 
-steps_mn_bias  = [0.3,  2.203, 0.455, 0.606]
-steps_sd_bias = [0.25, 0.827, 0.139, 0.27 ]
+#steps_mn_bias  = [0.3,  2.203, 0.455, 0.606]
+#steps_sd_bias = [0.25, 0.827, 0.139, 0.27 ]
 
 steps_mn_pure  = [0.3,  2.027, 0.44,  0.565, 0.531] 
 steps_sd_pure = [0.25, 1.035, 0.149, 0.306, 0.01]
+
+dists = ['exp', 'exp', 'norm', 'norm']
+adjustments = [[0.0355699, 0, 0], [0.103031, 11.4071, -5.02844], [0.170348, 0, 0], [0.998543, 0, 0]]
 
 steps_mn = steps_mn_pure
 steps_sd = steps_sd_pure
@@ -82,17 +85,18 @@ def LogisticCurve(x,l,k,x0):
 
 def Abiogenesis(x):
     #return HardStepNormal(x, 0) if x > 0.05 else 0
-    return HardStepExp(x - 0.05, 0) if x > 0.05 else 0
+    return HardStepExp(x - 0.05, 0) #if x > 0.05 else 0
 
 def Eukaryogenesis(x):
     #return HardStepNormal(x, 1) if x > 0.1 else 0
-    return HardStepExp(x, 1) if x > 0.1 else 0
+    return HardStepExp(x, 1) #if x > 0.1 else 0
 
 def Differentiation(x):
-    return HardStepNormal(x, 2) if x > 0.05 else 0
+    #return HardStepNormal(x, 2) if x > 0.05 else 0
+    return HardStepExp(x, 2) #if x > 0.05 else 0
 
 def Explosion(x):
-    return HardStepNormal(x, 3) if x > 0.05 else 0
+    return HardStepNormal(x, 3) #if x > 0.05 else 0
 
 def CCE(x):
     return HardStepNormal(x, 4) if x > 0.05 else 0
@@ -109,7 +113,7 @@ def Biodiversity(x):
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-timespan = 100  # in Gyr
+timespan = 10000  # in Gyr
 timestep = timespan/10000 # in Gyr
 # if ratio above 10000, memory errory throws when making grid
 t = [i*timestep for i in range(int(timespan/timestep))]
@@ -160,6 +164,59 @@ def CombineStep(x, step1, step2, grid):
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def ChainSteps():
+
+    tstart = time()
+
+    def Real_Eukaryo(x):
+        base = Eukaryogenesis
+        adjust = 0
+        return base(x) * (1 - adjustments[adjust][0]**x)
+    
+    xlist.append([Real_Eukaryo(i) for i in t])
+    tend = time()
+    print(tend - tstart, "\n")
+    
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    tstart = time()
+
+    def Real_Diff(x):
+        base = Real_Eukaryo
+        adjust = 1
+        return base(x) * (1 - adjustments[adjust][0]**x)
+    
+    xlist.append([Real_Diff(i) for i in t])
+    tend = time()
+    print(tend - tstart, "\n")
+
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    tstart = time()
+
+    def Real_Expl(x):
+        base = Real_Diff
+        adjust = 2
+        return base(x) * (1 - adjustments[adjust][0]**x)
+    
+    xlist.append([Real_Expl(i) for i in t])
+    tend = time()
+    print(tend - tstart, "\n")
+
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    tstart = time()
+
+    def Real_Biod(x):
+        base = Biodiversity
+        adjust = 3
+        return base(x) * (1 - adjustments[adjust][0]**x)
+    
+    xlist.append([Real_Biod(i) for i in t])
+    tend = time()
+    print(tend - tstart, "\n")
+
+
+def ChainStepsOld():
     
     tstart = time()
 
