@@ -24,7 +24,7 @@ import numpy as np
 from scipy.integrate import quad
 from math import dist
 import os
-os.chdir("insert path here")
+os.chdir("insert")
 tend()
 
 seed = 42
@@ -70,6 +70,7 @@ def light_will_travel(a):
 
 Rad_OU = light_has_travelled(1)
 Rad_AU = light_will_travel(1)
+Rad_EOU = Rad_OU + Rad_AU
 
 tstart()
 A1 = [0.000001 * 1.005 ** i for i in range(5001)]
@@ -530,6 +531,9 @@ else:
     #print(points)
     #print(pointdists)
 
+#adding humanity's origin
+points[gcnum_tnow_perOUSV] = (0, 0, 0)
+
 te = time()
 tprint(ts,te)
 
@@ -539,35 +543,50 @@ if not points_loading:
 
 
 
+gc_loading = True
+
 ts = time()
 
-print("\nSTARTING GC ITERATIVE REJECTION")
+successful_indices = []
+if gc_loading:
+    print("\nLOADING GCS")
+    point_arrays = np.load("sophonce_gc_civs.npz")
+    successful_indices = point_arrays["array"]
+    for i in successful_indices:
+        grabbies.append(GC(i, points[i], 0, birthdates[i], 0))
+else:
+    print("\nSTARTING GC ITERATIVE REJECTION")
+    for i in range(gcnum+1):
+        thist = birthdates[i]
+        thisp = points[i]
+        thisou = OU_rads_dates[i]
+        this_rej = False
 
-for i in range(gcnum+1):
-    thist = birthdates[i]
-    thisp = points[i]
-    thisou = OU_rads_dates[i]
-    this_rej = False
+        for j in grabbies:
+            thatt = j.time
+            thatp = j.pos
+            thatou = j.ourad
+            #print(thisp, thatp)
+            thatrad = thisou - thatou
+            #print(thatrad)
+            if IsPointInSphere(thatrad, thatp, thisp):
+                #print("GC " + str(i) + " rejected due to being within GC " + str(j.index))
+                this_rej = True
+                break
+        
+        if not this_rej :
+            #print("GC " + str(i) + " successfully begins expansion")
+            #print(thist)
+            successful_indices.append(i)
+            grabbies.append(GC(i, thisp, 0, thist, 0))
 
-    for j in grabbies:
-        thatt = j.time
-        thatp = j.pos
-        thatou = j.ourad
-        #print(thisp, thatp)
-        thatrad = thisou - thatou
-        #print(thatrad)
-        if IsPointInSphere(thatrad, thatp, thisp):
-            #print("GC " + str(i) + " rejected due to being within GC " + str(j.index))
-            this_rej = True
-            break
-    
-    if not this_rej :
-        #print("GC " + str(i) + " successfully begins expansion")
-        #print(thist)
-        grabbies.append(GC(i, thisp, 0, thist, 0))
 
 te = time()
 tprint(ts,te)
+
+if not gc_loading:
+    #np.savez("sophonce_gc_points.npz", array5=points, array6 = pointdists)
+    np.savez("sophonce_gc_civs.npz", array=successful_indices)
 
 #min_dist = Rad_OU
 #for i in range(220): #220
@@ -613,8 +632,6 @@ tprint(ts,te)
 
 rand.seed(str(seed) + "GCs iterated")
 
-print()
-
 print("Number of GCs: " + str(len(grabbies)))
 print("Number of attempted GCs: " + str(gcnum+1))
 print("Largest comoving radius by now: " + str(grabbies[0].comovingradius(a)))
@@ -633,8 +650,19 @@ for i in grabbies:
 
 #print(t1)
 
-#human = GC(-1, (0,0,0), -1, a)
-humanity = grabbies[gcnum_tnow_perOUSV-1]
+#---------------------------------------------------- SEARCHING FOR HUMANITY -----------------------------------------------------
+
+humanindex = -1
+
+for i in range(len(grabbies)):
+    g = grabbies[i]
+    if 13.5 < g.time < 14:
+        if g.time == a:
+            humanindex = i
+            print("\nHUMAN INDEX LOCATED: " + str(i))
+
+
+humanity = grabbies[humanindex]
 print(humanity.pos)
 print(humanity.comovingradius(a))
 print(humanity.comovingradius(1000))
@@ -642,6 +670,80 @@ print(VolumeFractionOUSV(humanity.comovingradius(1000)))
 
 print("Observable Universe current radius: " + str(Rad_OU))
 print("Affectable Universe current radius: " + str(Rad_AU))
+
+print()
+
+n_gc_contact = 0
+n_gc_comehere = 0
+n_gc_gothere = 0
+
+
+#for i in range(len(grabbies)):
+#    g = grabbies[i]
+#    dist_e = DistanceBetweenPoints(g.pos, humanity.pos)
+#    g_AU = Rad_EOU - g.ourad
+#    if dist_e < g_AU + Rad_AU :
+#        print("\nGC " + str(i))
+#        print(round(g.time, 3), round(dist_e, 3), g.pos)
+#        print("GC and humanity in contact")
+#        if g.time < a:
+#            print("We meet at this distance:", str((dist_e - (Rad_OU - g.ourad))/2))
+#        else:
+#            print("We meet at this distance:", str((dist_e - (g.ourad - Rad_OU))/2))
+#        n_gc_contact += 1
+#        if dist_e < g_AU :
+#            print("GC can reach Earth")
+#            n_gc_comehere += 1
+#        if dist_e < Rad_AU :
+#            print("Humanity can reach GC origin")
+#            n_gc_gothere += 1
+#
+#print("Number of GCs we meet: " + str(n_gc_contact))
+#print("Number of GCs that can come here: " + str(n_gc_comehere))
+#print("Number of GCs whose origin we can go to: " + str(n_gc_gothere))
+
+def PointIsInWhatGC(point, sf):
+    candidate_index = -1
+    maxdistextra = 0
+    for i in range(len(grabbies)):
+        g = grabbies[i]
+        grad = Rad_EOU - g.ourad
+        if grad >= 0:
+            #print(i)
+            if IsPointInSphere(grad, g.pos, point):
+                gdist = dist(g.pos, point)
+                gdistextra = grad - gdist
+                if gdistextra > maxdistextra:
+                    maxdistextra = gdistextra
+                    candidate_index = i
+    return candidate_index
+
+print(PointIsInWhatGC((5, 0, 0), 1))
+
+samplepoints = [(0,0,0)]
+
+samplerad = 6 #16.5
+
+for i in range(2000):
+    point = PointInSphereCrude(samplerad)
+    pointwhatgc = PointIsInWhatGC(point, 1)
+    #while pointwhatgc > 30:
+    #    point = PointInSphereCrude(samplerad)
+    #    pointwhatgc = PointIsInWhatGC(point, 1)
+    samplepoints.append(point)
+
+sampleindices = [PointIsInWhatGC(i, 1) for i in samplepoints]
+xs = [i[0] for i in samplepoints]
+ys = [i[1] for i in samplepoints]
+zs = [i[2] for i in samplepoints]
+cs = [((i**10%255)/255, (i**11%255)/255, (i**12%255)/255) for i in sampleindices]
+print(sampleindices)
+print(list(set(sampleindices)))
+for i in list(set(sampleindices)):
+    g = grabbies[i]
+    print(i, round(g.time, 3))
+    p = g.pos
+    print((round(p[0], 3),round(p[1], 3),round(p[2], 3)))
 
 #---------------------------------------------------- GRAPH REAL GCS AGAINST GC BIRTHRATE -----------------------------------------------------
 timelist_2 = [i * 1 + 5 for i in range(int(universe_cutoff - 4))]
@@ -652,7 +754,7 @@ interv_gc_births_real = [0]
 for i in range(len(timelist_2)-1):
     lowr = timelist_2[i]
     hir = timelist_2[i+1]
-    print(lowr, hir)
+    #print(lowr, hir)
     attcount = 0
     for j in birthdates:
         if lowr < j and j <= hir:
@@ -670,8 +772,8 @@ for i in range(len(timelist_2)-1):
 #print(max(real_birthdates))
 #print(ngc_list)
 
-print(num_GCs_by_gyr(30))
-print(timelist_2)
+#print(num_GCs_by_gyr(30))
+#print(timelist_2)
 
 # GRAPH IT
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -685,4 +787,12 @@ ax.plot(timelist_2,[R_GC_interpolate(i) for i in timelist_2], color="red")
 ax.plot(timelist_2,interv_gc_births_real, color="orange")
 plt.xlim(0,30)
 plt.ylim(0,10**4)
+plt.show()
+
+ax = plt.figure().add_subplot(projection="3d")
+ax.set_aspect("equal")
+ax.scatter(xs, ys, zs, c=cs)
+ax.axes.set_xlim3d(left  =-samplerad, right=samplerad) 
+ax.axes.set_ylim3d(bottom=-samplerad, top=  samplerad) 
+ax.axes.set_zlim3d(bottom=-samplerad, top=  samplerad)
 plt.show()
